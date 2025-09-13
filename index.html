@@ -1,207 +1,392 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <title>Accessible Live Object Detection</title>
+  <title>Unified Object & Text Detection with Camera Switch</title>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
   <style>
-    /* Reset */
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
     }
+
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #e9ebee;
-      color: #222;
-      line-height: 1.5;
-      display: flex;
+      background: #f5f7fa;
+      color: #333;
       min-height: 100vh;
+      display: flex;
       flex-direction: column;
       align-items: center;
       padding: 20px;
     }
-    h1 {
-      margin-bottom: 10px;
+
+    h2 {
+      margin-bottom: 20px;
       color: #2c3e50;
+      font-weight: 700;
+      font-size: 2rem;
     }
+
     #container {
       display: flex;
       max-width: 960px;
       width: 100%;
-      border-radius: 14px;
-      box-shadow: 0 12px 30px rgba(0,0,0,0.15);
-      overflow: hidden;
       background: white;
+      border-radius: 14px;
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+      overflow: hidden;
     }
+
     #video-section {
       flex: 2;
+      background: #1e293b;
       padding: 20px;
+      border-radius: 14px 0 0 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       position: relative;
     }
-    video {
-      border-radius: 10px;
+
+    #video-container {
+      position: relative;
+      width: 640px;
+      height: 480px;
+    }
+
+    #webcam,
+    #overlay {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 640px;
+      height: 480px;
+      border-radius: 12px;
+      object-fit: cover;
+      display: block;
+    }
+
+    #cameraSelect {
+      margin-top: 16px;
+      font-size: 16px;
       width: 100%;
-      height: auto;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-    }
-    #startBtn {
-      margin-top: 15px;
-      padding: 12px 28px;
-      font-size: 18px;
-      background-color: #2980b9;
+      max-width: 300px;
+      padding: 8px 12px;
+      border-radius: 7px;
       border: none;
+      background: #2980b9;
       color: white;
-      border-radius: 8px;
       cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 6px 12px rgba(41,128,185, 0.45);
+      box-shadow: 0 4px 12px rgba(41, 128, 185, 0.5);
+      transition: background-color 0.3s ease;
     }
-    #startBtn:disabled {
-      background-color: #7f8c8d;
-      cursor: not-allowed;
-      box-shadow: none;
+
+    #cameraSelect:hover {
+      background-color: #1f6391;
     }
+
     #status {
-      margin-top: 12px;
-      font-style: italic;
+      margin-top: 14px;
       font-weight: 600;
-      color: #34495e;
+      color: #e2e8f0;
+      min-height: 24px;
+      text-align: center;
+      user-select: none;
+      font-size: 1rem;
     }
+
     #sidebar {
       flex: 1;
-      background: #f7f9fb;
-      border-left: 2px solid #ecf0f1;
-      padding: 20px;
+      padding: 24px 20px;
+      background: #f9fafb;
+      border-left: 2px solid #d1d5db;
+      max-height: 600px;
       overflow-y: auto;
+      display: flex;
+      flex-direction: column;
     }
-    #objectListTitle {
-      font-size: 22px;
+
+    #sidebar h3 {
+      font-size: 1.5rem;
       font-weight: 700;
-      margin-bottom: 10px;
-      color: #34495e;
+      color: #4b5563;
+      margin-bottom: 14px;
       text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
-    #objectList {
+
+    #outputList {
       list-style: none;
-      max-height: 520px;
-      overflow-y: auto;
       padding-left: 0;
-    }
-    #objectList li {
-      padding: 12px 16px;
-      background: #d6eaf8;
-      margin-bottom: 12px;
-      border-radius: 10px;
-      font-size: 18px;
+      color: #2c3e50;
       font-weight: 600;
-      color: #154360;
+      font-size: 1.1rem;
+      flex-grow: 1;
+      overflow-y: auto;
+    }
+
+    #outputList li {
+      background-color: #eaf1f8;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      padding: 12px 18px;
+      box-shadow: inset 0 2px 4px #ffffffaa;
       display: flex;
       justify-content: space-between;
-      box-shadow: inset 0 2px 4px rgba(255, 255, 255, .3);
-      transition: background-color 0.25s ease;
+      align-items: center;
+      letter-spacing: 0.02em;
+      transition: background-color 0.3s;
+      cursor: default;
     }
-    #objectList li:hover {
-      background-color: #85c1e9;
+
+    #outputList li:hover {
+      background-color: #c9d9f6;
       color: white;
+    }
+
+    #outputList li span.confidence {
+      background-color: #2563eb;
+      color: white;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      min-width: 50px;
+      text-align: center;
+    }
+
+    @media (max-width: 850px) {
+      #container {
+        flex-direction: column;
+        max-width: 90vw;
+      }
+
+      #video-section {
+        border-radius: 14px 14px 0 0;
+      }
+
+      #sidebar {
+        border-left: none;
+        border-top: 2px solid #d1d5db;
+        max-height: 250px;
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 12px 10px;
+      }
+
+      #sidebar h3 {
+        display: none;
+      }
+
+      #outputList {
+        display: flex;
+        flex-direction: row;
+        gap: 10px;
+        font-size: 0.95rem;
+        font-weight: 600;
+      }
+
+      #outputList li {
+        min-width: 120px;
+        white-space: nowrap;
+      }
     }
   </style>
 </head>
+
 <body>
-  <h1>Accessible Live Object Detection</h1>
+  <h2>Unified Object & Text Detection with Camera Switch</h2>
   <div id="container">
     <section id="video-section">
-      <video id="webcam" autoplay muted playsinline></video>
-      <button id="startBtn" disabled>Loading Model...</button>
-      <div id="status">Waiting for model to load...</div>
+      <div id="video-container">
+        <video id="webcam" autoplay muted playsinline></video>
+        <canvas id="overlay"></canvas>
+      </div>
+      <select id="cameraSelect" aria-label="Select camera"></select>
+      <div id="status">Loading models and initializing camera...</div>
     </section>
     <aside id="sidebar">
-      <div id="objectListTitle">Detected Objects</div>
-      <ul id="objectList">
-        <li>No objects detected yet</li>
-      </ul>
+      <h3>Detected Items</h3>
+      <ul id="outputList"><li>Loading detection results...</li></ul>
     </aside>
   </div>
 
   <script>
-    const startBtn = document.getElementById('startBtn');
-    const status = document.getElementById('status');
     const video = document.getElementById('webcam');
-    const objectList = document.getElementById('objectList');
+    const overlay = document.getElementById('overlay');
+    const ctx = overlay.getContext('2d');
+    const outputList = document.getElementById('outputList');
+    const status = document.getElementById('status');
+    const cameraSelect = document.getElementById('cameraSelect');
 
     let model = null;
-    let previousObjects = new Set();
+    let stream = null;
+    let lastOCRTime = 0;
+    const OCR_INTERVAL = 3000;
+    let previousItems = new Set();
 
-    // Load the model
-    cocoSsd.load().then(loadedModel => {
-      model = loadedModel;
-      startBtn.textContent = 'Enable Webcam';
-      startBtn.disabled = false;
-      status.textContent = 'Model loaded. Click "Enable Webcam" to start.';
-    });
+    async function loadObjectModel() {
+      status.textContent = "Loading object detection model...";
+      return await cocoSsd.load();
+    }
 
-    startBtn.addEventListener('click', async () => {
-      startBtn.disabled = true;
-      status.textContent = 'Awaiting camera permissions...';
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        video.srcObject = stream;
-        video.style.display = 'block';
-        status.textContent = 'Camera enabled. Detecting objects...';
-        detectFrame();
-      } catch (error) {
-        status.textContent = 'Camera access denied or unavailable.';
-        startBtn.disabled = false;
+    async function populateCameraList() {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(device => device.kind === 'videoinput');
+      cameraSelect.innerHTML = videoDevices.map((device, idx) =>
+        `<option value="${device.deviceId}">${device.label || 'Camera ' + (idx + 1)}</option>`
+      ).join('');
+    }
+
+    async function startCamera(deviceId) {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
       }
-    });
 
-    function detectFrame() {
-      model.detect(video).then(predictions => {
-        // Clear previous list if no predictions
-        if (predictions.length === 0) {
-          objectList.innerHTML = '<li>No objects detected</li>';
-          status.textContent = 'No objects detected in the camera frame.';
-          previousObjects.clear();
-        } else {
-          // Generate list content
-          const currentObjects = new Set();
-          objectList.innerHTML = '';
+      const constraints = { video: { deviceId: { exact: deviceId } } };
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+      video.srcObject = stream;
 
-          predictions.forEach(p => {
-            const className = p.class;
-            const confidence = Math.round(p.score * 100);
-            currentObjects.add(className);
-
-            const li = document.createElement('li');
-            li.textContent = `${className}`;
-            const confSpan = document.createElement('span');
-            confSpan.textContent = `${confidence}%`;
-            li.appendChild(confSpan);
-            objectList.appendChild(li);
-          });
-
-          // Update status
-          status.textContent = `Detected ${predictions.length} object${predictions.length > 1 ? 's' : ''}.`;
-
-          // Speech feedback for newly detected objects
-          const newObjects = [...currentObjects].filter(x => !previousObjects.has(x));
-          if (newObjects.length > 0) {
-            const utterance = new SpeechSynthesisUtterance('I see ' + newObjects.join(', '));
-            window.speechSynthesis.cancel(); // Cancel any existing speech
-            window.speechSynthesis.speak(utterance);
-          }
-          previousObjects = currentObjects;
+      await new Promise(resolve => {
+        video.onloadedmetadata = () => {
+          overlay.width = video.videoWidth;
+          overlay.height = video.videoHeight;
+          resolve();
         }
-
-        requestAnimationFrame(detectFrame);
-      }).catch(err => {
-        status.textContent = 'Error detecting objects, retrying...';
-        console.error(err);
-        setTimeout(detectFrame, 1000);
       });
     }
+
+    async function runOCR() {
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = video.videoWidth;
+      tempCanvas.height = video.videoHeight;
+      const tCtx = tempCanvas.getContext('2d');
+      tCtx.drawImage(video, 0, 0);
+
+      const imgData = tCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+      for (let i = 0; i < imgData.data.length; i += 4) {
+        const avg = (imgData.data[i] + imgData.data[i + 1] + imgData.data[i + 2]) / 3;
+        const enhanced = avg > 128 ? Math.min(255, avg * 1.3) : avg * 0.7;
+        imgData.data[i] = imgData.data[i + 1] = imgData.data[i + 2] = enhanced;
+      }
+      tCtx.putImageData(imgData, 0, 0);
+
+      const dataUrl = tempCanvas.toDataURL();
+      const { data: { text } } = await Tesseract.recognize(dataUrl, 'eng');
+
+      return text.trim();
+    }
+
+    async function detectLoop() {
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+      if (!model || !video.videoWidth) {
+        requestAnimationFrame(detectLoop);
+        return;
+      }
+
+      // Run object detection
+      const predictions = await model.detect(video);
+
+      // Draw bounding boxes and labels
+      predictions.forEach(pred => {
+        const [x, y, w, h] = pred.bbox;
+        ctx.strokeStyle = '#36a2eb';
+        ctx.lineWidth = 3;
+        ctx.fillStyle = 'rgba(54, 162, 235, 0.3)';
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeRect(x, y, w, h);
+        ctx.font = '18px Arial';
+        ctx.fillStyle = '#153e75';
+        ctx.fillText(`${pred.class} ${Math.round(pred.score * 100)}%`, x + 6, y > 20 ? y - 6 : y + 24);
+      });
+
+      // Aggregate detected items
+      let detectedItems = new Set();
+      predictions.forEach(p =>
+        detectedItems.add(`${p.class} (${Math.round(p.score * 100)}%)`)
+      );
+
+      // Run OCR every OCR_INTERVAL ms
+      if (Date.now() - lastOCRTime > OCR_INTERVAL) {
+        lastOCRTime = Date.now();
+        status.textContent = "Performing text recognition...";
+        try {
+          const textResult = await runOCR();
+          if (textResult.length > 0) {
+            const lines = textResult.split('\n').filter(l => l.trim() !== '');
+            lines.forEach(line => detectedItems.add('Text: ' + line.trim()));
+          }
+          status.textContent = "Detection running...";
+        } catch (e) {
+          status.textContent = "OCR error: " + e.message;
+        }
+      } else {
+        status.textContent = "Detection running...";
+      }
+
+      // Update sidebar and speech
+      if (detectedItems.size === 0) {
+        outputList.innerHTML = '<li>No objects or text detected.</li>';
+      } else {
+        const newItems = [...detectedItems].filter(i => !previousItems.has(i));
+        if (newItems.length > 0) {
+          const utterance = new SpeechSynthesisUtterance("I see " + newItems.join(', '));
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(utterance);
+        }
+        previousItems = detectedItems;
+        outputList.innerHTML = '';
+        detectedItems.forEach(i => {
+          const li = document.createElement('li');
+          if (i.startsWith('Text: ')) {
+            li.textContent = i;
+          } else {
+            const splitIndex = i.lastIndexOf(' ');
+            li.textContent = i.substring(0, splitIndex);
+            const span = document.createElement('span');
+            span.className = 'confidence';
+            span.textContent = i.substring(splitIndex + 1);
+            li.appendChild(span);
+          }
+          outputList.appendChild(li);
+        });
+      }
+
+      requestAnimationFrame(detectLoop);
+    }
+
+    async function init() {
+      status.textContent = "Loading model...";
+      model = await loadObjectModel();
+
+      status.textContent = "Loading cameras...";
+      await populateCameraList();
+
+      if (cameraSelect.options.length === 0) {
+        status.textContent = "No cameras found.";
+        return;
+      }
+
+      await startCamera(cameraSelect.value);
+      detectLoop();
+    }
+
+    cameraSelect.onchange = async () => {
+      status.textContent = "Switching camera...";
+      await startCamera(cameraSelect.value);
+      status.textContent = "Camera switched. Running detection...";
+    };
+
+    init();
+
   </script>
 </body>
+
 </html>
