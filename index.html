@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Live Object Detection</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+  <style>
+    body { background: #fff; display: flex; flex-direction: column; align-items: center; font-family: Arial, sans-serif; }
+    video { border: 2px solid #111; margin: 20px 0; border-radius: 12px; }
+    #output { font-size: 22px; color: #222; }
+    button { padding: 10px 22px; font-size: 18px; }
+  </style>
+</head>
+<body>
+  <h2>Live Object Detection</h2>
+  <video id="webcam" width="640" height="480" autoplay muted playsinline style="display: none;"></video>
+  <button id="startBtn">Enable Webcam</button>
+  <div id="output">Press "Enable Webcam" and allow camera access.</div>
+  <script>
+    let model, video = document.getElementById('webcam');
+    const output = document.getElementById('output');
+    const startBtn = document.getElementById('startBtn');
+
+    // Load the model on page load
+    cocoSsd.load()
+      .then(m => {
+        model = m; 
+        startBtn.disabled = false;
+        output.textContent = "Model loaded. Press Enable Webcam!";
+      });
+
+    startBtn.onclick = async () => {
+      // Ask for webcam permission and show the video
+      startBtn.disabled = true;
+      output.textContent = "Waiting for camera...";
+      video.style.display = "";
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        video.onloadedmetadata = () => {
+          output.textContent = "Camera enabled. Detecting objects...";
+          detectFrame();
+        };
+      } catch (e) {
+        output.textContent = "Camera access denied or not available.";
+      }
+    };
+
+    function detectFrame() {
+      model.detect(video).then(predictions => {
+        if(predictions.length === 0) {
+          output.textContent = "No objects detected.";
+        } else {
+          output.innerHTML = predictions.map(p =>
+            `<div>${p.class} (${Math.round(p.score * 100)}%)</div>`
+          ).join('');
+        }
+        requestAnimationFrame(detectFrame);
+      });
+    }
+  </script>
+</body>
+</html>

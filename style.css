@@ -1,0 +1,54 @@
+body {
+    background: #f2f2f2;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    margin: 0;
+}
+
+header,
+footer {
+    text-align: center;
+    background: #222;
+    color: #fff;
+    padding: 20px 0;
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 30px 0;
+}
+
+.camera-container {
+    position: relative;
+}
+
+video {
+    border-radius: 8px;
+    box-shadow: 0 4px 20px #888;
+    width: 640px;
+    height: 480px;
+    margin-bottom: 15px;
+}
+
+button {
+    font-size: 18px;
+    padding: 10px 25px;
+    background: #2980b9;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+#results {
+    margin-top: 22px;
+    font-size: 20px;
+    color: #222;
+    background: #fafafa;
+    border-radius: 10px;
+    box-shadow: 0 2px 12px #ccc;
+    max-width: 640px;
+    min-height: 40px;
+    padding: 18px;
+}
